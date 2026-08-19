@@ -1,5 +1,17 @@
 node_modules/
 dist/
 *.log
+npm-debug.log*
+logs/
 .DS_Store
 .claude/settings.local.json
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Local secrets folder — never commit its contents
+secrets/*
+!secrets/.gitkeep
+!secrets/README.md
