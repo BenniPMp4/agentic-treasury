@@ -174,6 +174,20 @@ export class EntitlementStore {
   }
 
   /**
+   * Phase 2, invariant 11: force-syncs amount_spent to the chain's
+   * authoritative value during reconciliation (src/chain/reconcile.ts).
+   * Bypasses recordSpend's remainder check on purpose — this reflects a
+   * spend that already happened on chain, not a new proposed one, so
+   * there's nothing left to reject. Still clamped to amount_granted
+   * defensively; the chain's own cap should make that clamp a no-op.
+   */
+  correctSpent(id: string, actualSpent: bigint, now: number = Date.now()): Entitlement {
+    const ent = this.touch(id, now);
+    ent.amount_spent = actualSpent > ent.amount_granted ? ent.amount_granted : actualSpent;
+    return ent;
+  }
+
+  /**
    * Terminates a single node (expired or revoked): recursively terminates
    * any still-active children first (depth-first), then releases its
    * reclaimable remainder up to its parent's `amount_delegated`, or — for a

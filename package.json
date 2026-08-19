@@ -10,16 +10,30 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "sim": "tsx src/sim/fleet.ts",
-    "start": "tsx src/server.ts"
+    "start": "tsx src/server.ts",
+    "demo": "tsx scripts/demo.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "viem": "^2.55.19",
+    "permissionless": "^0.4.0",
+    "@zerodev/sdk": "^5.5.10",
+    "@zerodev/permissions": "^5.6.3",
+    "@zerodev/ecdsa-validator": "^5.4.9",
+    "@x402/core": "^2.23.0",
+    "@x402/evm": "^2.23.0",
+    "@x402/express": "^2.23.0",
+    "@x402/fetch": "^2.23.0",
+    "express": "^5.2.1"
   },
   "devDependencies": {
     "typescript": "^5.5.4",
     "vitest": "^2.0.5",
     "tsx": "^4.16.2",
-    "@types/node": "^20.14.15"
+    "@types/node": "^20.14.15",
+    "@types/express": "^5.0.6",
+    "ganache": "^7.9.2",
+    "solc": "^0.8.36"
   }
 }
