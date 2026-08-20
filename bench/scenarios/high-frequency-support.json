@@ -1,0 +1,14 @@
+{
+  "name": "high-frequency-support",
+  "description": "A support/agent-ops fleet making frequent small payments (e.g. per-call LLM/API costs) every few seconds, over 3 days spanning a weekend.",
+  "agentCount": 30,
+  "simulatedHours": 72,
+  "tickMinutes": 5,
+  "seed": 101,
+  "poolTotal": 32724000,
+  "spendFrequencyPerHour": 240,
+  "spendAmountMin": 1,
+  "spendAmountMax": 100,
+  "intentAccuracy": 0.6,
+  "startIso": "2026-03-05T00:00:00Z"
+}

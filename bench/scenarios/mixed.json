@@ -1,0 +1,14 @@
+{
+  "name": "mixed",
+  "description": "A blended fleet of moderate size and frequency, one full week including a weekend — the default, least cherry-picked case.",
+  "agentCount": 100,
+  "simulatedHours": 168,
+  "tickMinutes": 10,
+  "seed": 303,
+  "poolTotal": 127260000,
+  "spendFrequencyPerHour": 6,
+  "spendAmountMin": 20,
+  "spendAmountMax": 2000,
+  "intentAccuracy": 0.75,
+  "startIso": "2026-03-02T00:00:00Z"
+}

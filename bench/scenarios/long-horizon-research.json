@@ -1,0 +1,14 @@
+{
+  "name": "long-horizon-research",
+  "description": "A small research fleet making infrequent, large, plannable compute/grant payments over 4 weeks — the case for the cold tier and long-horizon buffer sizing.",
+  "agentCount": 20,
+  "simulatedHours": 672,
+  "tickMinutes": 30,
+  "seed": 202,
+  "poolTotal": 214200000,
+  "spendFrequencyPerHour": 0.5,
+  "spendAmountMin": 1000,
+  "spendAmountMax": 50000,
+  "intentAccuracy": 0.9,
+  "startIso": "2026-03-02T00:00:00Z"
+}

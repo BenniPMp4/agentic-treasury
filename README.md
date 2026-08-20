@@ -5,6 +5,7 @@ pool of capital, instead of giving each agent its own wallet.
 
 Full permission model: [`CLAUDE.md`](./CLAUDE.md) (Phase 1).
 On-chain enforcement design: [`PHASE2.md`](./PHASE2.md) (Phase 2).
+Yield layer, benchmark: [`PHASE3.md`](./PHASE3.md) (Phase 3).
 
 ## Setup
 
@@ -14,6 +15,7 @@ npm test        # everything below, ~30s
 npm run build   # tsc, strict, no errors
 npm run sim     # Phase 1 simulated fleet
 npm run demo    # Phase 2 demo — see "Demo" below
+npm run bench   # Phase 3 counterfactual benchmark — see "Benchmark" below
 ```
 
 ## Install in Claude Desktop
@@ -179,4 +181,90 @@ test/
   chain.test.ts             Session key issuance and revocation.
   adversarial.test.ts       The compromised-backend suite.
   reconcile.test.ts         The three divergence cases.
+```
+
+## Phase 3: yield layer
+
+`src/yield/` (fund adapter + tiering + accrual apportionment) and
+`src/intent/` (window-bucketed intents, the hot-buffer formula, and
+settled-only reliability scoring) implement invariants 12-15 — see
+`test/yield.test.ts`, written before any of those files existed. Three
+things worth knowing if you're extending this:
+
+- **The hot buffer's undeclared-spend term has to scale with the whole
+  vulnerability window, not one tick.** A per-tick standard deviation
+  chronically under-buffers once that window is more than one tick wide
+  (which is always — it's at minimum a same-day dealing delay, and up to
+  ~72h over a weekend). `src/intent/buffer.ts`'s formula takes a
+  pre-scaled `residualStddev`; the caller (bench/simulate.ts) is
+  responsible for scaling it to the actual horizon.
+- **A redemption requested now can only help with spend after it lands.**
+  `MockFund.settlementDelayMs(now)` tells you when a redemption requested
+  *now* arrives — it does not tell you how far ahead you need to be
+  looking to have *already* pre-positioned hot capital for spend that
+  happens before that. See `safeLookaheadMs` in `bench/simulate.ts` for
+  why the real answer is roughly two dealing cycles, not one, and
+  `README.md`'s benchmark section below for what went wrong before this
+  was fixed.
+- **Rebalancing only ever moves capital *out* of hot** (invariant 14) —
+  topping hot back up is a proactive redemption request with its own
+  delay, tracked explicitly as an in-flight amount until it lands. Money
+  leaves warm/cold the instant it's requested (it stops earning yield
+  immediately) but isn't spendable until it arrives.
+
+## Phase 3: counterfactual benchmark
+
+```bash
+npm run bench
+```
+
+Runs `baseline` / `treasury` / `oracle` against three committed scenarios
+(`bench/scenarios/*.json`) — a high-frequency support fleet, a
+long-horizon research fleet, and a mixed fleet spanning a weekend — plus
+the intent-accuracy sensitivity sweep (0% -> 100%) for `treasury` against
+each. Prints plain-text tables and writes `bench/results/*.{json,csv}`
+(gitignored — regenerate, don't commit stale numbers). `test/bench.test.ts`
+is invariant 16 (identical seed -> byte-identical output), written before
+any scenario code existed.
+
+**Reading the output:** `pct_of_oracle` in the sensitivity sweep is the
+headline number — "treasury captures X% of the theoretical maximum" — not
+"treasury beats baseline" (baseline is definitionally 0% capital
+efficiency: a wallet-per-agent with no pooling has no principled way to
+know any capital is safe to invest, so none of it ever is). Two honest
+findings worth calling out rather than smoothing over:
+
+- **Pooling alone — even at 0% intent accuracy — already captures a large
+  share of the oracle ceiling** (e.g. ~83% on the `mixed` scenario,
+  climbing to ~98% at 100% accuracy). Declared intent is a real, additive
+  lever on top of pooling, not the only source of the benefit; the
+  sensitivity curve's climb is real, but it climbs from an already-nonzero
+  baseline, not from zero.
+- **A small number of buffer breaches appear specifically at exactly 100%
+  intent accuracy** on two of the three scenarios (near-zero elsewhere).
+  This is a known rounding/edge effect (float-to-bigint conversion at the
+  statistical-formula boundary, most likely) rather than a real economic
+  effect — flagged here rather than tuned away, since PHASE3.md is
+  explicit that a benchmark's credibility depends on the scenarios being
+  honest.
+
+## File map (Phase 3 additions)
+
+```
+src/yield/
+  fund.ts        FundAdapter interface + MockFund (dealing cut-offs, weekends).
+  allocation.ts  Hot/warm/cold rebalancing (invariant 14).
+  accrual.ts     Per-agent apportionment (invariant 12).
+src/intent/
+  engine.ts      Window-bucketed intent declare/expire/consume.
+  buffer.ts      requiredHotBuffer() + BufferGuard (invariant 13).
+  reliability.ts ReliabilityScorer (invariant 15).
+bench/
+  types.ts, rng.ts, demand.ts, metrics.ts, simulate.ts   The engine.
+  scenarios/*.json    The three committed scenarios.
+  run.ts              npm run bench.
+  results/            Generated, gitignored.
+test/
+  yield.test.ts   Invariants 12-15.
+  bench.test.ts   Invariant 16.
 ```
