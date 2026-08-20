@@ -178,6 +178,43 @@ export function runFleet(options: FleetOptions = {}): FleetSummary {
   };
 }
 
+export interface SeedDemoOptions {
+  tenantId?: string;
+  count?: number;
+  seed?: number;
+}
+
+export interface SeededEntitlement {
+  agent_id: string;
+  entitlement_id: string;
+  amount_granted: bigint;
+}
+
+/**
+ * Seeds a handful of demo entitlements deterministically, for exploring
+ * the shipped MCP server's tools/resources (`--sim` in server.ts) without
+ * first having to call request_entitlement yourself. Additive — doesn't
+ * touch runFleet's behaviour or signature.
+ */
+export function seedDemoEntitlements(
+  entitlements: EntitlementStore,
+  options: SeedDemoOptions = {}
+): SeededEntitlement[] {
+  const tenantId = options.tenantId ?? "default";
+  const count = options.count ?? 5;
+  const rand = mulberry32(options.seed ?? 7);
+
+  const seeded: SeededEntitlement[] = [];
+  for (let i = 0; i < count; i++) {
+    const agent_id = `demo-agent-${i + 1}`;
+    const amount = BigInt(5_000 + Math.floor(rand() * 45_000));
+    const ttl_seconds = (10 + Math.floor(rand() * 50)) * 60; // 10-60 min
+    const ent = entitlements.request({ tenantId, agent_id, amount, ttl_seconds });
+    seeded.push({ agent_id, entitlement_id: ent.id, amount_granted: ent.amount_granted });
+  }
+  return seeded;
+}
+
 function formatSummary(s: FleetSummary): string {
   const pct = (n: number) => `${(n * 100).toFixed(2)}%`;
   const codesTable = (label: string, counts: Record<RejectionCode, number>) =>

@@ -16,6 +16,44 @@ npm run sim     # Phase 1 simulated fleet
 npm run demo    # Phase 2 demo — see "Demo" below
 ```
 
+## Install in Claude Desktop
+
+No build required — `npx` runs the TypeScript source directly via the
+`tsx` devDependency. Add this to your `claude_desktop_config.json`
+(substitute your actual absolute path to this repo):
+
+```json
+{
+  "mcpServers": {
+    "agent-treasury": {
+      "command": "npx",
+      "args": ["tsx", "/absolute/path/to/agent-treasury-mcp/src/server.ts"]
+    }
+  }
+}
+```
+
+To explore without first calling `request_entitlement` yourself, add
+`"--sim"` to `args` — it pre-populates five demo entitlements
+(`demo-agent-1` .. `demo-agent-5`) at startup, printed to stderr so they
+never touch the JSON-RPC stdout stream:
+
+```json
+      "args": ["tsx", "/absolute/path/to/agent-treasury-mcp/src/server.ts", "--sim"]
+```
+
+Restart Claude Desktop, then ask it to request a budget, delegate part of
+it to a sub-agent, spend, overspend, and see the rejection — see
+`test/server.test.ts` for the exact flow this claim is tested against.
+Rejections come back as structured JSON (`{code, entitlement_id,
+available, message}`), not a bare error string, so an agent can decide
+whether to retry with a smaller amount without a second round trip.
+
+Prefer a built, installed package instead? `npm install && npm run build`
+compiles to `dist/src/server.js` (the `bin` entry — `npx .` from the repo
+root works the same way once built; `prepare` runs the build automatically
+on `npm install`).
+
 ## Phase 2: architecture decisions
 
 PHASE2.md asks two things of whoever implements it: check current SDK docs

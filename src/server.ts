@@ -5,20 +5,36 @@
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { InMemoryLedger } from "./ledger.js";
+import { InMemoryLedger, TreasuryError } from "./ledger.js";
 import { EntitlementStore } from "./entitlements.js";
 import { IntentStore } from "./intents.js";
 import { SettlementService } from "./settlement.js";
 import { getShadowRate } from "./shadow.js";
+import { seedDemoEntitlements } from "./sim/fleet.js";
 
 const TENANT = "default";
 const POOL_SEED = 100_000_000n; // demo seed capital, minor units (USDC, 6dp)
+
+// `--sim` (or AGENT_TREASURY_SIM=1) pre-populates a few demo entitlements
+// at startup so a stranger driving this from Claude Desktop has something
+// to call check_balance/settle against immediately, with no chain, no
+// credentials, and no prior request_entitlement call of their own.
+const SIM_MODE = process.argv.includes("--sim") || process.env.AGENT_TREASURY_SIM === "1";
 
 const ledger = new InMemoryLedger();
 ledger.createPool(TENANT, POOL_SEED);
 const entitlements = new EntitlementStore(ledger);
 const intents = new IntentStore(ledger, entitlements);
 const settlementSvc = new SettlementService(ledger, entitlements, intents);
+
+if (SIM_MODE) {
+  const seeded = seedDemoEntitlements(entitlements, { tenantId: TENANT });
+  // stderr only — stdout is the JSON-RPC stream for the stdio transport.
+  console.error("[agent-treasury] sim mode: seeded demo entitlements");
+  for (const s of seeded) {
+    console.error(`  ${s.agent_id}: ${s.entitlement_id} (granted ${s.amount_granted} minor units)`);
+  }
+}
 
 const server = new McpServer({ name: "agent-treasury", version: "0.1.0" });
 
@@ -45,9 +61,44 @@ function toJson(data: unknown) {
   };
 }
 
-function toError(err: unknown) {
+/**
+ * Structured MCP error: `code` is the exact RejectionCode string (or null
+ * for a non-TreasuryError), plus enough context to retry without another
+ * round trip — which entitlement was involved and what's actually
+ * available against it right now.
+ */
+function toError(err: unknown, context?: { entitlement_id?: string | null; available?: bigint | null }) {
+  const code = err instanceof TreasuryError ? err.code : null;
   const message = err instanceof Error ? err.message : String(err);
-  return { content: [{ type: "text" as const, text: message }], isError: true as const };
+  return {
+    content: [
+      {
+        type: "text" as const,
+        text: JSON.stringify({
+          code,
+          entitlement_id: context?.entitlement_id ?? null,
+          available: context?.available != null ? context.available.toString() : null,
+          message,
+        }),
+      },
+    ],
+    isError: true as const,
+  };
+}
+
+/** Best-effort balance lookup for error context — the entitlement itself
+ * may be the thing that's unknown/invalid, in which case we just omit it. */
+function availableFor(entitlementId: string): bigint | null {
+  try {
+    return entitlements.checkBalance(entitlementId).available;
+  } catch {
+    return null;
+  }
+}
+
+function poolAvailable(): bigint {
+  const pool = ledger.getPool(TENANT);
+  return pool.total - pool.reserved - pool.granted;
 }
 
 // ---- Tools ----------------------------------------------------------------
@@ -80,7 +131,11 @@ server.registerTool(
         expires_at: iso(ent.expires_at),
       });
     } catch (err) {
-      return toError(err);
+      // No entitlement exists yet — context is the parent's remainder
+      // (for delegation errors) or the pool's remainder (for a root
+      // request), whichever the rejection actually bears on.
+      const available = args.parent_id ? availableFor(args.parent_id) : poolAvailable();
+      return toError(err, { entitlement_id: args.parent_id ?? null, available });
     }
   }
 );
@@ -110,7 +165,7 @@ server.registerTool(
       });
       return toJson(result);
     } catch (err) {
-      return toError(err);
+      return toError(err, { entitlement_id: args.entitlement_id, available: availableFor(args.entitlement_id) });
     }
   }
 );
@@ -126,7 +181,7 @@ server.registerTool(
       const bal = entitlements.checkBalance(args.entitlement_id);
       return toJson({ ...bal, expires_at: iso(bal.expires_at) });
     } catch (err) {
-      return toError(err);
+      return toError(err, { entitlement_id: args.entitlement_id });
     }
   }
 );
@@ -154,7 +209,7 @@ server.registerTool(
       });
       return toJson(result);
     } catch (err) {
-      return toError(err);
+      return toError(err, { entitlement_id: args.entitlement_id, available: availableFor(args.entitlement_id) });
     }
   }
 );
@@ -170,7 +225,7 @@ server.registerTool(
       const result = entitlements.revoke(args.entitlement_id);
       return toJson(result);
     } catch (err) {
-      return toError(err);
+      return toError(err, { entitlement_id: args.entitlement_id });
     }
   }
 );
