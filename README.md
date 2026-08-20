@@ -125,7 +125,22 @@ above. To actually run it against Base Sepolia:
 
 1. Fund a wallet from [Circle's testnet USDC faucet](https://faucet.circle.com/) — testnet only, no real funds.
 2. Get a bundler/paymaster API key from [Pimlico](https://dashboard.pimlico.io/).
-3. Put `BASE_SEPOLIA_RPC_URL` and `PIMLICO_API_KEY` in `secrets/.env` (gitignored — see `secrets/README.md`). Copy `secrets/.env.example` as a starting point.
+3. Put `BASE_SEPOLIA_RPC_URL`, `PIMLICO_API_KEY` and `LIVE_TEST_OWNER_PRIVATE_KEY` in `secrets/.env` (gitignored — see `secrets/README.md`). Copy `secrets/.env.example` as a starting point.
+
+**PHASE3.md "also close" item:** `SessionKeyVault.sol` proves the
+permission table works as a contract; it doesn't prove it works against
+*production* account abstraction. `test/live-kernel-adversarial.test.ts`
+closes that gap — one adversarial case (spend to a target outside a
+ZeroDev call policy) run against a real Kernel account, a real Pimlico
+bundler, and a real Base Sepolia UserOperation, `describe.skipIf`-gated
+on the credentials above so `npm test` stays green without them. It
+type-checks cleanly against the pinned SDK versions (`npm run build`
+verifies the whole call shape — `createKernelAccount`,
+`toPermissionValidator`, `toCallPolicy`, `createKernelAccountClient`, the
+Pimlico client — actually compiles against them), but has never executed
+against a live bundler in this environment, for the same missing-credentials
+reason as the rest of this section. Debug its first real run against
+actual errors, not against an assumption this file is correct.
 
 ### x402: v2, not the deprecated v1
 
