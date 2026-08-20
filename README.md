@@ -7,6 +7,34 @@ Full permission model: [`CLAUDE.md`](./CLAUDE.md) (Phase 1).
 On-chain enforcement design: [`PHASE2.md`](./PHASE2.md) (Phase 2).
 Yield layer, benchmark: [`PHASE3.md`](./PHASE3.md) (Phase 3).
 
+## For agents picking this up
+
+Read CLAUDE.md/PHASE2.md/PHASE3.md for spec, then this file for the
+decisions and gotchas already resolved — re-deriving these from source
+costs real effort for no new information:
+
+- Why the adversarial/reconcile/chain tests run on a local ganache+solc
+  chain, not live Base Sepolia → "Phase 2: architecture decisions", *Why
+  the adversarial suite runs on a local chain*.
+- Ganache's revert-message text doesn't match viem's built-in decoding
+  (`decodeVaultRevert`'s fallback exists because of this) → same section.
+- Why ZeroDev Kernel over plain permissionless.js, and why x402 v2 not
+  v1 → "Phase 2: architecture decisions", the two subsections below the one above.
+- The hot-buffer lookahead has to be ~two dealing cycles, not one
+  (`safeLookaheadMs`), and rebalancing only ever moves capital *out* of
+  hot (proactive top-up needs its own in-flight tracking) → "Phase 3:
+  yield layer" and "Phase 3: counterfactual benchmark".
+- Known accepted limitation: small breach counts at exactly 100% intent
+  accuracy on 2 of 3 benchmark scenarios, not chased further → "Phase 3:
+  counterfactual benchmark".
+- `test/live-kernel-adversarial.test.ts` type-checks against the pinned
+  SDKs but has never executed (no credentials in any session so far) →
+  "Production path" subsection.
+
+Fuller version of all of this: `[[phase2-chain-architecture]]` and
+`[[phase3-mcp-yield-benchmark]]` in this assistant's persistent memory,
+if you have access to it.
+
 ## Setup
 
 ```bash
